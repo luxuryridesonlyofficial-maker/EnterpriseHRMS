@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  phone     String?
+  email     String?
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branches  Branch[]
+}
+
+model Branch {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  name        String
+  companyId   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  company     Company      @relation(fields: [companyId], references: [id])
+  departments Department[]
+  employees   Employee[]
+  holidays    Holiday[]
+  shifts      Shift[]
+}
+
+model Department {
+  id           String        @id @default(uuid())
+  code         String        @unique
+  name         String
+  branchId     String
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  designations Designation[]
+}
+
+model Designation {
+  id           String     @id @default(uuid())
+  code         String     @unique
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  employees    Employee[]
+}
+
+model Employee {
+  id            String         @id @default(uuid())
+  employeeCode  String         @unique
+  firstName     String
+  lastName      String?
+  mobile        String         @unique
+  email         String?
+  status        EmployeeStatus @default(ACTIVE)
+  branchId      String
+  designationId String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  shiftId       String?
+  attendance    Attendance[]
+  leaves        Leave[]
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  designation   Designation    @relation(fields: [designationId], references: [id])
+  shift         Shift?         @relation("EmployeeShift", fields: [shiftId], references: [id])
+  user          User?
+
+  @@index([shiftId])
+}
+
+model User {
+  id         String    @id @default(uuid())
+  mobile     String    @unique
+  password   String
+  role       UserRole
+  isActive   Boolean   @default(true)
+  employeeId String?   @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+}
+
+model Attendance {
+  id                String            @id @default(uuid())
+  employeeId        String
+  date              DateTime          @db.Date
+  checkIn           DateTime?
+  checkOut          DateTime?
+  workingMinutes    Int               @default(0)
+  breakMinutes      Int               @default(0)
+  overtimeMinutes   Int               @default(0)
+  lateMinutes       Int               @default(0)
+  earlyExitMinutes  Int               @default(0)
+  status            AttendanceStatus
+  remarks           String?
+  netWorkingMinutes Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+  employee          Employee          @relation(fields: [employeeId], references: [id])
+  breaks            AttendanceBreak[]
+
+  @@unique([employeeId, date])
+  @@index([employeeId, status])
+  @@index([date, status])
+}
+
+model AttendanceBreak {
+  id           String     @id @default(uuid())
+  attendanceId String
+  breakOut     DateTime
+  breakIn      DateTime?
+  minutes      Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId, breakIn])
+}
+
+model Shift {
+  id        String     @id @default(uuid())
+  name      String
+  startTime String
+  endTime   String
+  branchId  String
+  employees Employee[] @relation("EmployeeShift")
+  branch    Branch     @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, name])
+}
+
+model Holiday {
+  id       String   @id @default(uuid())
+  title    String
+  date     DateTime
+  branchId String
+  branch   Branch   @relation(fields: [branchId], references: [id])
+}
+
+model Leave {
+  id             String       @id @default(uuid())
+  employeeId     String
+  leaveNumber    String @unique
+
+  leaveType      LeaveType
+  status         LeaveStatus  @default(PENDING)
+
+  fromDate       DateTime     @db.Date
+  toDate         DateTime     @db.Date
+  totalDays      Float
+
+  isHalfDay      Boolean      @default(false)
+  halfDaySession String?
+
+  reason         String
+  remarks        String?
+  rejectionReason String?
+
+  approvedBy     String?
+  approvedAt     DateTime?
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  employee        Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([leaveType])
+  @@index([fromDate, toDate])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  HR_MANAGER
+  HR_EXECUTIVE
+  MANAGER
+  TEAM_LEAD
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  NOTICE
+  RESIGNED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+  WEEK_OFF
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+  UNPAID
+  MATERNITY
+  PATERNITY
+  COMP_OFF
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
