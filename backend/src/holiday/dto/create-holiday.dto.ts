@@ -1,17 +1,17 @@
-import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDate, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateHolidayDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(200)
-  title: string;
+  @MaxLength(100)
+  title!: string;
 
-  // expect date in YYYY-MM-DD
-  @IsString()
-  @Matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)
-  date: string;
+  @Type(() => Date)
+  @IsDate()
+  date!: Date;
 
   @IsString()
   @IsNotEmpty()
-  branchId: string;
+  branchId!: string;
 }
