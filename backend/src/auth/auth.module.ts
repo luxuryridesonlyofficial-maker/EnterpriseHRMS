@@ -12,11 +12,13 @@ import { RolesGuard } from './guards/roles.guard';
   imports: [
     PrismaModule,
     PassportModule,
-    JwtModule.register({
-      secret: 'HRMS_SECRET_KEY_2026',
-      signOptions: {
-        expiresIn: '1d',
-      },
+    JwtModule.registerAsync({
+      imports: [],
+      // cast to any for compatibility with JwtModuleAsyncOptions typing
+      useFactory: (): any => ({
+        secret: process.env.JWT_SECRET || 'HRMS_SECRET_KEY_2026',
+        signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '1d' },
+      }),
     }),
   ],
   controllers: [AuthController],

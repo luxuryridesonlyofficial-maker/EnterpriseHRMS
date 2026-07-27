@@ -8,15 +8,16 @@ datasource db {
 }
 
 model Company {
-  id        String   @id @default(uuid())
-  code      String   @unique
+  id        String    @id @default(uuid())
+  code      String    @unique
   name      String
   phone     String?
   email     String?
   logo      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   branches  Branch[]
+  payrolls  Payroll[]
 }
 
 model Branch {
@@ -31,6 +32,7 @@ model Branch {
   employees   Employee[]
   holidays    Holiday[]
   shifts      Shift[]
+  payrolls    Payroll[]
 }
 
 model Department {
@@ -52,24 +54,32 @@ model Designation {
 }
 
 model Employee {
-  id            String         @id @default(uuid())
-  employeeCode  String         @unique
-  firstName     String
-  lastName      String?
-  mobile        String         @unique
-  email         String?
-  status        EmployeeStatus @default(ACTIVE)
-  branchId      String
-  designationId String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  shiftId       String?
-  attendance    Attendance[]
-  leaves        Leave[]
-  branch        Branch         @relation(fields: [branchId], references: [id])
-  designation   Designation    @relation(fields: [designationId], references: [id])
-  shift         Shift?         @relation("EmployeeShift", fields: [shiftId], references: [id])
-  user          User?
+  id              String           @id @default(uuid())
+  employeeCode    String           @unique
+  firstName       String
+  lastName        String?
+  mobile          String           @unique
+  email           String?
+  status          EmployeeStatus   @default(ACTIVE)
+  branchId        String
+  designationId   String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  shiftId         String?
+  attendance      Attendance[]
+  leaves          Leave[]
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  designation     Designation      @relation(fields: [designationId], references: [id])
+  shift           Shift?           @relation("EmployeeShift", fields: [shiftId], references: [id])
+  user            User?
+  salaryStructure SalaryStructure?
+  payrolls        Payroll[]
+  allowances      Allowance[]
+  deductions      Deduction[]
+  bonuses         Bonus[]
+  incentives      Incentive[]
+  advanceSalaries AdvanceSalary[]
+  loans           Loan[]
 
   @@index([shiftId])
 }
@@ -144,31 +154,31 @@ model Holiday {
 }
 
 model Leave {
-  id             String       @id @default(uuid())
-  employeeId     String
-  leaveNumber    String @unique
+  id          String @id @default(uuid())
+  employeeId  String
+  leaveNumber String @unique
 
-  leaveType      LeaveType
-  status         LeaveStatus  @default(PENDING)
+  leaveType LeaveType
+  status    LeaveStatus @default(PENDING)
 
-  fromDate       DateTime     @db.Date
-  toDate         DateTime     @db.Date
-  totalDays      Float
+  fromDate  DateTime @db.Date
+  toDate    DateTime @db.Date
+  totalDays Float
 
-  isHalfDay      Boolean      @default(false)
+  isHalfDay      Boolean @default(false)
   halfDaySession String?
 
-  reason         String
-  remarks        String?
+  reason          String
+  remarks         String?
   rejectionReason String?
 
-  approvedBy     String?
-  approvedAt     DateTime?
+  approvedBy String?
+  approvedAt DateTime?
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  employee        Employee     @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId])
   @@index([status])
@@ -218,4 +228,258 @@ enum LeaveStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+  PAID
+}
+
+enum PayrollItemType {
+  EARNING
+  DEDUCTION
+  OVERTIME
+  BONUS
+  INCENTIVE
+}
+
+enum PayrollHistoryAction {
+  GENERATED
+  APPROVED
+  LOCKED
+  UNLOCKED
+  REGENERATED
+  MODIFIED
+  DELETED
+}
+
+enum SalaryStructureStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AdvanceStatus {
+  PENDING
+  PARTIALLY_DEDUCTED
+  COMPLETED
+}
+
+enum LoanStatus {
+  ACTIVE
+  CLOSED
+  DEFAULTED
+}
+
+model SalaryStructure {
+  id         String                @id @default(uuid())
+  employeeId String                @unique
+  status     SalaryStructureStatus @default(ACTIVE)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  createdBy  String?
+  updatedBy  String?
+
+  employee  Employee         @relation(fields: [employeeId], references: [id])
+  revisions SalaryRevision[]
+
+  @@index([employeeId])
+}
+
+model SalaryRevision {
+  id                String    @id @default(uuid())
+  salaryStructureId String
+  version           Int
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  components        Json
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String?
+  updatedBy         String?
+
+  salaryStructure SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+
+  @@index([salaryStructureId, version])
+}
+
+model SalaryComponent {
+  id            String          @id @default(uuid())
+  name          String
+  type          PayrollItemType
+  defaultAmount Float
+  isPercentage  Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  createdBy     String?
+  updatedBy     String?
+}
+
+model Payroll {
+  id              String        @id @default(uuid())
+  month           String
+  employeeId      String
+  companyId       String?
+  branchId        String?
+  gross           Float
+  totalDeductions Float
+  net             Float
+  status          PayrollStatus @default(DRAFT)
+  approvedAt      DateTime?
+  lockedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdBy       String?
+  updatedBy       String?
+
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  company          Company?          @relation(fields: [companyId], references: [id])
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  items            PayrollItem[]
+  payslip          Payslip?
+  payrollApprovals PayrollApproval[]
+  payrollHistories PayrollHistory[]
+
+  @@unique([employeeId, month])
+  @@index([month])
+  @@index([status])
+}
+
+model PayrollItem {
+  id          String          @id @default(uuid())
+  payrollId   String
+  type        PayrollItemType
+  name        String
+  amount      Float
+  referenceId String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdBy   String?
+  updatedBy   String?
+
+  payroll Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+}
+
+model Allowance {
+  id           String   @id @default(uuid())
+  employeeId   String?
+  name         String
+  amount       Float
+  isPercentage Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    String?
+  updatedBy    String?
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+}
+
+model Deduction {
+  id           String   @id @default(uuid())
+  employeeId   String?
+  name         String
+  amount       Float
+  isPercentage Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    String?
+  updatedBy    String?
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+}
+
+model Bonus {
+  id         String   @id @default(uuid())
+  employeeId String
+  amount     Float
+  reason     String?
+  month      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model Incentive {
+  id         String   @id @default(uuid())
+  employeeId String
+  amount     Float
+  reason     String?
+  month      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model AdvanceSalary {
+  id             String        @id @default(uuid())
+  employeeId     String
+  amount         Float
+  deductedAmount Float         @default(0)
+  dueMonth       String?
+  status         AdvanceStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdBy      String?
+  updatedBy      String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model Loan {
+  id                 String     @id @default(uuid())
+  employeeId         String
+  principal          Float
+  outstanding        Float
+  monthlyInstallment Float
+  startDate          DateTime
+  endDate            DateTime?
+  status             LoanStatus @default(ACTIVE)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  createdBy          String?
+  updatedBy          String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model Payslip {
+  id        String   @id @default(uuid())
+  payrollId String   @unique
+  content   Json
+  pdfPath   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payroll Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+}
+
+model PayrollApproval {
+  id         String   @id @default(uuid())
+  payrollId  String
+  approverId String
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  payroll Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+}
+
+model PayrollHistory {
+  id        String               @id @default(uuid())
+  payrollId String
+  action    PayrollHistoryAction
+  actorId   String?
+  remarks   String?
+  createdAt DateTime             @default(now())
+
+  payroll Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
 }

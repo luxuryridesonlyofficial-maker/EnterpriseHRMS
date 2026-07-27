@@ -9,7 +9,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: 'HRMS_SECRET_KEY_2026',
+      secretOrKey: process.env.JWT_SECRET || 'HRMS_SECRET_KEY_2026',
     });
   }
 
