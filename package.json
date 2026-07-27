@@ -1,0 +1,21 @@
+{
+  "name": "enterprisehrms",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/premsinghsanhotra-prog/EnterpriseHRMS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/premsinghsanhotra-prog/EnterpriseHRMS/issues"
+  },
+  "homepage": "https://github.com/premsinghsanhotra-prog/EnterpriseHRMS#readme"
+}
