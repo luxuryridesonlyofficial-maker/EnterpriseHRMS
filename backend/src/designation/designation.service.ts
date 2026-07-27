@@ -70,22 +70,24 @@ export class DesignationService {
   }
 
   async findOne(id: string) {
-    return this.prisma.designation.findUnique({
-      where: {
-        id,
-      },
+    const designation = await this.prisma.designation.findUnique({
+      where: { id },
       include: {
         department: {
           include: {
             branch: {
-              include: {
-                company: true,
-              },
+              include: { company: true },
             },
           },
         },
       },
     });
+
+    if (!designation) {
+      throw new NotFoundException('Designation not found');
+    }
+
+    return designation;
   }
 
   async update(id: string, updateDesignationDto: UpdateDesignationDto) {

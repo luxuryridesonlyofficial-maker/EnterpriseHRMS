@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 import { LeaveService } from './leave.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
@@ -88,10 +88,12 @@ export class LeaveController {
   )
   @Patch(':id/approve')
   approve(
+    @Req() request: Request,
     @Param('id') id: string,
     @Body() approveLeaveDto: ApproveLeaveDto,
   ) {
-    return this.leaveService.approve(id, approveLeaveDto);
+    const approverId = (request as any).user?.id ?? null;
+    return this.leaveService.approve(id, approveLeaveDto, approverId);
   }
 
   @Roles(

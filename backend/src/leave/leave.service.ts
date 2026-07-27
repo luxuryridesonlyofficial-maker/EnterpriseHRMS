@@ -64,17 +64,26 @@ export class LeaveService {
       );
     }
 
-   const totalDays =
-  (createLeaveDto.toDate.getTime() -
-    createLeaveDto.fromDate.getTime()) /
-    (1000 * 60 * 60 * 24) +
-  1;
+    const totalDays =
+      (createLeaveDto.toDate.getTime() -
+        createLeaveDto.fromDate.getTime()) /
+        (1000 * 60 * 60 * 24) +
+      1;
 
-const year = new Date().getFullYear();
+    const year = new Date().getFullYear();
+    const startOfYear = new Date(Date.UTC(year, 0, 1));
+    const startOfNextYear = new Date(Date.UTC(year + 1, 0, 1));
 
-const leaveCount = await this.prisma.leave.count();
+    const leaveCount = await this.prisma.leave.count({
+      where: {
+        createdAt: {
+          gte: startOfYear,
+          lt: startOfNextYear,
+        },
+      },
+    });
 
-const leaveNumber = `LEV-${year}-${String(leaveCount + 1).padStart(6, '0')}`;
+    const leaveNumber = `LEV-${year}-${String(leaveCount + 1).padStart(6, '0')}`;
 
     return this.prisma.leave.create({
       data: {
@@ -112,16 +121,46 @@ const leaveNumber = `LEV-${year}-${String(leaveCount + 1).padStart(6, '0')}`;
   }
 
     async update(id: string, updateLeaveDto: UpdateLeaveDto) {
-    await this.findOne(id);
+      const existingLeave = await this.findOne(id);
 
-    return this.prisma.leave.update({
-      where: { id },
-      data: updateLeaveDto,
-      include: this.leaveInclude,
-    });
-  }
+      if (existingLeave.status !== LeaveStatus.PENDING) {
+        throw new ConflictException('Only pending leaves can be updated');
+      }
 
-  async approve(id: string, _approveLeaveDto: ApproveLeaveDto) {
+      if (
+        updateLeaveDto.fromDate &&
+        updateLeaveDto.toDate &&
+        updateLeaveDto.fromDate > updateLeaveDto.toDate
+      ) {
+        throw new BadRequestException('From Date cannot be greater than To Date');
+      }
+
+      // If dates are changing, ensure no overlap with other leaves
+      const newFromDate = updateLeaveDto.fromDate ?? existingLeave.fromDate;
+      const newToDate = updateLeaveDto.toDate ?? existingLeave.toDate;
+
+      const overlapping = await this.prisma.leave.findFirst({
+        where: {
+          id: { not: id },
+          employeeId: existingLeave.employeeId,
+          status: { not: LeaveStatus.REJECTED },
+          fromDate: { lte: newToDate },
+          toDate: { gte: newFromDate },
+        },
+      });
+
+      if (overlapping) {
+        throw new ConflictException('Leave already exists for selected dates');
+      }
+
+      return this.prisma.leave.update({
+        where: { id },
+        data: updateLeaveDto,
+        include: this.leaveInclude,
+      });
+    }
+
+  async approve(id: string, approveLeaveDto: ApproveLeaveDto, approverId?: string) {
     const leave = await this.findOne(id);
 
     if (leave.status === LeaveStatus.APPROVED) {
@@ -133,6 +172,8 @@ const leaveNumber = `LEV-${year}-${String(leaveCount + 1).padStart(6, '0')}`;
       data: {
         status: LeaveStatus.APPROVED,
         approvedAt: new Date(),
+        remarks: approveLeaveDto.remarks ?? leave.remarks,
+        approvedBy: approverId ?? leave.approvedBy,
       },
       include: this.leaveInclude,
     });

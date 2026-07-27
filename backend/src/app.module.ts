@@ -13,6 +13,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ShiftModule } from './shift/shift.module';
 import { UserModule } from './user/user.module';
 import { LeaveModule } from './leave/leave.module';
+import { HolidayModule } from './holiday/holiday.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -30,6 +33,9 @@ import { LeaveModule } from './leave/leave.module';
     AttendanceModule,
     ShiftModule,
     LeaveModule,
+    HolidayModule,
+    DashboardModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [AppService],
