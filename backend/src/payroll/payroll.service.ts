@@ -22,21 +22,58 @@ export class PayrollService {
     let structure = await this.prisma.salaryStructure.findUnique({ where: { employeeId: dto.employeeId } }).catch(() => null);
 
     if (!structure) {
-      structure = await this.prisma.salaryStructure.create({
-        data: {
-          employeeId: dto.employeeId,
-          basicSalary: dto.basic ?? 0,
+      // create structure and initial revision atomically
+      const result = await this.prisma.$transaction(async (tx) => {
+        const s = await tx.salaryStructure.create({
+          data: {
+            employeeId: dto.employeeId,
+            basicSalary: dto.basic ?? 0,
+            hra: dto.hra ?? 0,
+            transportAllowance: dto.travel ?? 0,
+            otherAllowances: dto.otherAllowances ?? 0,
+            pfContributionEmployee: dto.pf ?? 0,
+            pfContributionEmployer: 0,
+            esiContributionEmployee: dto.esi ?? 0,
+            esiContributionEmployer: 0,
+            professionalTax: dto.professionalTax ?? 0,
+            tds: dto.tds ?? 0,
+          },
+        });
+
+        const componentsInit = {
+          basic: dto.basic,
           hra: dto.hra ?? 0,
-          transportAllowance: dto.travel ?? 0,
+          da: dto.da ?? 0,
+          medical: dto.medical ?? 0,
+          travel: dto.travel ?? 0,
           otherAllowances: dto.otherAllowances ?? 0,
-          pfContributionEmployee: dto.pf ?? 0,
-          pfContributionEmployer: 0,
-          esiContributionEmployee: dto.esi ?? 0,
-          esiContributionEmployer: 0,
-          professionalTax: dto.professionalTax ?? 0,
-          tds: dto.tds ?? 0,
-        },
+          incentives: dto.incentives ?? 0,
+          overtimeRatePerHour: dto.overtimeRatePerHour ?? 0,
+          deductions: {
+            pf: dto.pf ?? 0,
+            esi: dto.esi ?? 0,
+            professionalTax: dto.professionalTax ?? 0,
+            tds: dto.tds ?? 0,
+            advanceDeduction: dto.advanceDeduction ?? 0,
+            loanDeduction: dto.loanDeduction ?? 0,
+            otherDeductions: dto.otherDeductions ?? 0,
+          },
+        };
+
+        const r = await tx.salaryRevision.create({
+          data: {
+            salaryStructureId: s.id,
+            version: 1,
+            effectiveFrom: new Date(),
+            components: componentsInit,
+            createdBy: userId,
+          },
+        });
+
+        return { structure: s, revision: r };
       });
+
+      return result;
     }
 
     // create a revision
@@ -167,54 +204,60 @@ export class PayrollService {
       const totalDeductions = pf + esi + professionalTax + tds + advance + loan + other + absentDeduction;
       const net = Math.max(0, proratedGross + overtimePay - totalDeductions);
 
-      // create payroll
-      const payroll = await this.prisma.payroll.create({
-        data: {
-          month: dto.month,
-          employeeId: emp.id,
-          companyId: emp.branch?.companyId ?? undefined,
-          branchId: emp.branchId,
-          gross: proratedGross + overtimePay,
-          totalDeductions,
-          net,
-          createdBy: userId,
-        },
+      // create payroll and related records in a transaction to ensure atomicity
+      const created = await this.prisma.$transaction(async (tx) => {
+        const payroll = await tx.payroll.create({
+          data: {
+            month: dto.month,
+            employeeId: emp.id,
+            companyId: emp.branch?.companyId ?? undefined,
+            branchId: emp.branchId,
+            gross: proratedGross + overtimePay,
+            totalDeductions,
+            net,
+            createdBy: userId,
+          },
+        });
+
+        // create items using createMany for efficiency
+        const items = [
+          { type: 'EARNING', name: 'Basic', amount: comps.basic ?? 0 },
+          { type: 'EARNING', name: 'HRA', amount: comps.hra ?? 0 },
+          { type: 'EARNING', name: 'DA', amount: comps.da ?? 0 },
+          { type: 'EARNING', name: 'Medical', amount: comps.medical ?? 0 },
+          { type: 'EARNING', name: 'Travel', amount: comps.travel ?? 0 },
+          { type: 'EARNING', name: 'Other Allowances', amount: comps.otherAllowances ?? 0 },
+          { type: 'EARNING', name: 'Incentives', amount: comps.incentives ?? 0 },
+          { type: 'EARNING', name: 'Overtime', amount: overtimePay },
+          { type: 'DEDUCTION', name: 'PF', amount: pf },
+          { type: 'DEDUCTION', name: 'ESI', amount: esi },
+          { type: 'DEDUCTION', name: 'Professional Tax', amount: professionalTax },
+          { type: 'DEDUCTION', name: 'TDS', amount: tds },
+          { type: 'DEDUCTION', name: 'Advance', amount: advance },
+          { type: 'DEDUCTION', name: 'Loan', amount: loan },
+          { type: 'DEDUCTION', name: 'Absent Deduction', amount: absentDeduction },
+          { type: 'DEDUCTION', name: 'Other Deductions', amount: other },
+        ];
+
+        // Prisma createMany may ignore relational checks but is efficient
+        await tx.payrollItem.createMany({ data: items.map(it => ({ payrollId: payroll.id, type: it.type as any, name: it.name, amount: it.amount })) });
+
+        // create payslip content
+        const payslip = await tx.payslip.create({ data: { payslipNumber: `PS-${Date.now()}`, employeeId: emp.id, month, year, basicSalary: comps.basic ?? 0, grossEarnings: payroll.gross, grossDeductions: totalDeductions, netSalary: payroll.net, earnings: comps, deductions: { totalDeductions } } });
+
+        // link payslip to payroll
+        await tx.payslip_Payroll.create({ data: { payrollId: payroll.id, content: { gross: payroll.gross, deductions: totalDeductions, net: payroll.net, components: comps } } });
+
+        // history
+        await tx.payrollHistory.create({ data: { payrollId: payroll.id, action: 'GENERATED', actorId: userId } });
+
+        // audit log
+        await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'generate_payroll', module: 'payroll', description: `Payroll generated for ${emp.id} for ${dto.month}` } });
+
+        return payroll;
       });
 
-      // create items
-      const items = [
-        { type: 'EARNING', name: 'Basic', amount: comps.basic ?? 0 },
-        { type: 'EARNING', name: 'HRA', amount: comps.hra ?? 0 },
-        { type: 'EARNING', name: 'DA', amount: comps.da ?? 0 },
-        { type: 'EARNING', name: 'Medical', amount: comps.medical ?? 0 },
-        { type: 'EARNING', name: 'Travel', amount: comps.travel ?? 0 },
-        { type: 'EARNING', name: 'Other Allowances', amount: comps.otherAllowances ?? 0 },
-        { type: 'EARNING', name: 'Incentives', amount: comps.incentives ?? 0 },
-        { type: 'EARNING', name: 'Overtime', amount: overtimePay },
-        { type: 'DEDUCTION', name: 'PF', amount: pf },
-        { type: 'DEDUCTION', name: 'ESI', amount: esi },
-        { type: 'DEDUCTION', name: 'Professional Tax', amount: professionalTax },
-        { type: 'DEDUCTION', name: 'TDS', amount: tds },
-        { type: 'DEDUCTION', name: 'Advance', amount: advance },
-        { type: 'DEDUCTION', name: 'Loan', amount: loan },
-        { type: 'DEDUCTION', name: 'Absent Deduction', amount: absentDeduction },
-        { type: 'DEDUCTION', name: 'Other Deductions', amount: other },
-      ];
-
-      for (const it of items) {
-        await this.prisma.payrollItem.create({ data: { payrollId: payroll.id, type: it.type as any, name: it.name, amount: it.amount } });
-      }
-
-      // create payslip content
-      const payslip = await this.prisma.payslip.create({ data: { payslipNumber: `PS-${Date.now()}`, employeeId: emp.id, month, year, basicSalary: comps.basic ?? 0, grossEarnings: payroll.gross, grossDeductions: totalDeductions, netSalary: payroll.net, earnings: comps, deductions: { totalDeductions } } });
-
-      // link payslip to payroll
-      await this.prisma.payslip_Payroll.create({ data: { payrollId: payroll.id, content: { gross: payroll.gross, deductions: totalDeductions, net: payroll.net, components: comps } } });
-
-      // history
-      await this.prisma.payrollHistory.create({ data: { payrollId: payroll.id, action: 'GENERATED', actorId: userId } });
-
-      createdPayrolls.push(payroll);
+      createdPayrolls.push(created);
     }
 
     return createdPayrolls;
@@ -238,25 +281,39 @@ export class PayrollService {
     if (!p) throw new NotFoundException('Payroll not found');
     if (p.status === 'LOCKED') throw new ConflictException('Payroll is locked');
     if (p.status === 'APPROVED') throw new ConflictException('Payroll already approved');
-    const updated = await this.prisma.payroll.update({ where: { id }, data: { status: 'APPROVED', approvedAt: new Date(), updatedBy: approverId } });
-    await this.prisma.payrollApproval.create({ data: { payrollId: id, approverId, remarks: '' } });
-    await this.prisma.payrollHistory.create({ data: { payrollId: id, action: 'APPROVED', actorId: approverId } });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.payroll.update({ where: { id }, data: { status: 'APPROVED', approvedAt: new Date(), updatedBy: approverId } });
+      await tx.payrollApproval.create({ data: { payrollId: id, approverId, remarks: '' } });
+      await tx.payrollHistory.create({ data: { payrollId: id, action: 'APPROVED', actorId: approverId } });
+      await tx.auditLog.create({ data: { userId: approverId ?? undefined, action: 'approve_payroll', module: 'payroll', description: `Payroll ${id} approved by ${approverId}` } });
+      return u;
+    });
+
     return updated;
   }
 
   async lockPayroll(id: string, userId?: string) {
     const p = await this.prisma.payroll.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Payroll not found');
-    const updated = await this.prisma.payroll.update({ where: { id }, data: { status: 'LOCKED', lockedAt: new Date(), updatedBy: userId } });
-    await this.prisma.payrollHistory.create({ data: { payrollId: id, action: 'LOCKED', actorId: userId } });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.payroll.update({ where: { id }, data: { status: 'LOCKED', lockedAt: new Date(), updatedBy: userId } });
+      await tx.payrollHistory.create({ data: { payrollId: id, action: 'LOCKED', actorId: userId } });
+      await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'lock_payroll', module: 'payroll', description: `Payroll ${id} locked` } });
+      return u;
+    });
     return updated;
   }
 
   async unlockPayroll(id: string, userId?: string) {
     const p = await this.prisma.payroll.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Payroll not found');
-    const updated = await this.prisma.payroll.update({ where: { id }, data: { status: 'DRAFT', lockedAt: null, updatedBy: userId } });
-    await this.prisma.payrollHistory.create({ data: { payrollId: id, action: 'UNLOCKED', actorId: userId } });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.payroll.update({ where: { id }, data: { status: 'DRAFT', lockedAt: null, updatedBy: userId } });
+      await tx.payrollHistory.create({ data: { payrollId: id, action: 'UNLOCKED', actorId: userId } });
+      await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'unlock_payroll', module: 'payroll', description: `Payroll ${id} unlocked` } });
+      return u;
+    });
     return updated;
   }
 }
