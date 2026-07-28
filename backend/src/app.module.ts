@@ -18,6 +18,7 @@ import { HolidayModule } from './holiday/holiday.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
 import { AssetModule } from './asset/asset.module';
+import { RecruitmentModule } from './recruitment/recruitment.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { PayrollModule } from './payroll/payroll.module';
     DashboardModule,
     NotificationModule,
     AssetModule,
+    RecruitmentModule,
     PayrollModule,
   ],
   controllers: [AppController],
