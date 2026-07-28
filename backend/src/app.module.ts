@@ -19,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
 import { AssetModule } from './asset/asset.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
+import { TrainingModule } from './training/training.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { PayrollModule } from './payroll/payroll.module';
     NotificationModule,
     AssetModule,
     RecruitmentModule,
+    TrainingModule,
     PayrollModule,
   ],
   controllers: [AppController],
