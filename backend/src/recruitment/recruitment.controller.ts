@@ -1,8 +1,11 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
 import { RecruitmentService } from './recruitment.service';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { CreateInterviewDto } from './dto/create-interview.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('recruitment')
 export class RecruitmentController {
   constructor(private readonly svc: RecruitmentService) {}

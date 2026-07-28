@@ -1,8 +1,11 @@
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards } from '@nestjs/common';
 import { TrainingService } from './training.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { EnrollDto } from './dto/enroll.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('training')
 export class TrainingController {
   constructor(private readonly svc: TrainingService) {}
