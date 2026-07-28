@@ -21,6 +21,7 @@ import { AssetModule } from './asset/asset.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { TrainingModule } from './training/training.module';
 import { PerformanceModule } from './performance/performance.module';
+import { ReportsModule } from './reports/reports.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -47,6 +48,7 @@ import { PayrollModule } from './payroll/payroll.module';
     RecruitmentModule,
     TrainingModule,
     PerformanceModule,
+    ReportsModule,
     PayrollModule,
   ],
   controllers: [AppController],
