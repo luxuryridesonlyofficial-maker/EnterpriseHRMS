@@ -17,6 +17,7 @@ import { LeaveModule } from './leave/leave.module';
 import { HolidayModule } from './holiday/holiday.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
+import { AssetModule } from './asset/asset.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -39,6 +40,7 @@ import { PayrollModule } from './payroll/payroll.module';
     HolidayModule,
     DashboardModule,
     NotificationModule,
+    AssetModule,
     PayrollModule,
   ],
   controllers: [AppController],
