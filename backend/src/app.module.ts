@@ -15,6 +15,7 @@ import { UserModule } from './user/user.module';
 import { LeaveModule } from './leave/leave.module';
 import { HolidayModule } from './holiday/holiday.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { NotificationModule } from './notification/notification.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { PayrollModule } from './payroll/payroll.module';
     LeaveModule,
     HolidayModule,
     DashboardModule,
+    NotificationModule,
     PayrollModule,
   ],
   controllers: [AppController],
