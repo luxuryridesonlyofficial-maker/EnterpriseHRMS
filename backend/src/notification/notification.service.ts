@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class NotificationService {
@@ -15,8 +17,16 @@ export class NotificationService {
     return this.prisma.notification.create({ data: createDto });
   }
 
-  async findAll() {
-    return this.prisma.notification.findMany({ orderBy: { createdAt: 'desc' } });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.notification.count(),
+      this.prisma.notification.findMany({ orderBy, skip, take: limit }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findByEmployee(employeeId: string) {

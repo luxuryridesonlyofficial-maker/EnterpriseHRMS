@@ -7,6 +7,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { PaginationDto, } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class EmployeeService {
@@ -43,13 +45,22 @@ export class EmployeeService {
     }
   }
 
-  async findAll() {
-    return await this.prisma.employee.findMany({
-      include: this.employeeInclude,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.employee.count(),
+      this.prisma.employee.findMany({
+        include: this.employeeInclude,
+        skip,
+        take: limit,
+        orderBy,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

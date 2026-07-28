@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete, UseGuards, Req, Query } from '@nestjs/common';
 import { AssetService } from './asset.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
+import { PaginationDto } from '../common/pagination.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('assets')
@@ -20,8 +21,8 @@ export class AssetController {
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: PaginationDto) {
+    return this.service.findAll(query);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)

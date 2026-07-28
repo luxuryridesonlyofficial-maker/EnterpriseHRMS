@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class AssetService {
@@ -19,8 +21,16 @@ export class AssetService {
     return this.prisma.asset.create({ data: dto as any });
   }
 
-  async findAll() {
-    return this.prisma.asset.findMany({ include: { branch: true, employee: true }, orderBy: { createdAt: 'desc' } });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.asset.count(),
+      this.prisma.asset.findMany({ include: { branch: true, employee: true }, skip, take: limit, orderBy }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

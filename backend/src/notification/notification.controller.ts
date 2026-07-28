@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PaginationDto } from '../common/pagination.dto';
 
 @ApiTags('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -18,8 +19,8 @@ export class NotificationController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: PaginationDto) {
+    return this.service.findAll(query);
   }
 
   @Get('employee/:employeeId')

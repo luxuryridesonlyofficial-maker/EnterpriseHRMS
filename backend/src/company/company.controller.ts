@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -38,8 +39,8 @@ export class CompanyController {
     UserRole.TEAM_LEAD,
   )
   @Get()
-  async findAll() {
-    return await this.companyService.findAll();
+  async findAll(@Query() query: any) {
+    return await this.companyService.findAll(query);
   }
 
   @Roles(

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSalaryStructureDto } from './dto/create-salary-structure.dto';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class PayrollService {
@@ -269,11 +271,20 @@ export class PayrollService {
     return p;
   }
 
-  async listPayrolls(employeeId?: string, month?: string) {
+  async listPayrolls(query: { employeeId?: string; month?: string } & Partial<PaginationDto> = {}) {
     const where: any = {};
-    if (employeeId) where.employeeId = employeeId;
-    if (month) where.month = month;
-    return await this.prisma.payroll.findMany({ where, include: { items: true } });
+    if (query.employeeId) where.employeeId = query.employeeId;
+    if (query.month) where.month = query.month;
+
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.payroll.count({ where }),
+      this.prisma.payroll.findMany({ where, include: { items: true }, skip, take: limit, orderBy }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async approvePayroll(id: string, approverId: string) {

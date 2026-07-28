@@ -7,12 +7,14 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
 import { EmployeeService } from './employee.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { PaginationDto } from '../common/pagination.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -38,8 +40,8 @@ export class EmployeeController {
     UserRole.TEAM_LEAD,
   )
   @Get()
-  findAll() {
-    return this.employeeService.findAll();
+  findAll(@Query() query: PaginationDto) {
+    return this.employeeService.findAll(query);
   }
 
   @Roles(

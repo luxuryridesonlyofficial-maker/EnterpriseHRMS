@@ -36,8 +36,8 @@ export class PayrollController {
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)
   @Get('history')
-  async history(@Query('employeeId') employeeId?: string, @Query('month') month?: string): Promise<any> {
-    return await this.payrollService.listPayrolls(employeeId, month);
+  async history(@Query() query: any): Promise<any> {
+    return await this.payrollService.listPayrolls(query);
   }
 
 
