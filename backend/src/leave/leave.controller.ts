@@ -10,6 +10,7 @@ import {
   Post,
   Req,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
@@ -23,6 +24,7 @@ import { RejectLeaveDto } from './dto/reject-leave.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginationDto } from '../common/pagination.dto';
 
 interface AuthenticatedLeaveUser {
   employeeId: string | null;
@@ -56,8 +58,8 @@ export class LeaveController {
     UserRole.HR_EXECUTIVE,
   )
   @Get()
-  findAll() {
-    return this.leaveService.findAll();
+  findAll(@Query() query: PaginationDto) {
+    return this.leaveService.findAll(query);
   }
 
   @Roles(

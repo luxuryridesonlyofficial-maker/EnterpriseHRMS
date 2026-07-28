@@ -12,10 +12,16 @@ import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { ApproveLeaveDto } from './dto/approve-leave.dto';
 import { RejectLeaveDto } from './dto/reject-leave.dto';
+import { AuditService } from '../audit/audit.service';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions, PaginationResult, buildDateRangeFilter } from '../common/pagination.util';
 
 @Injectable()
 export class LeaveService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   private readonly leaveInclude = {
     employee: {
@@ -96,13 +102,41 @@ export class LeaveService {
     });
   }
 
-  async findAll() {
-    return this.prisma.leave.findMany({
-      include: this.leaveInclude,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAll(query: Partial<PaginationDto>): Promise<PaginationResult<any>> {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const where: any = {};
+
+    if (query.search) {
+      where.OR = [
+        { leaveNumber: { contains: query.search, mode: 'insensitive' } },
+        { remarks: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const dateFilter = buildDateRangeFilter('createdAt', query.dateFrom, query.dateTo);
+    if (dateFilter) {
+      where.AND = where.AND || [];
+      where.AND.push(dateFilter);
+    }
+
+    const [total, data] = await Promise.all([
+      this.prisma.leave.count({ where }),
+      this.prisma.leave.findMany({
+        where,
+        include: this.leaveInclude,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages },
+    };
   }
 
   async findOne(id: string) {
@@ -167,16 +201,31 @@ export class LeaveService {
       throw new ConflictException('Leave is already approved');
     }
 
-    return this.prisma.leave.update({
-      where: { id },
-      data: {
-        status: LeaveStatus.APPROVED,
-        approvedAt: new Date(),
-        remarks: approveLeaveDto.remarks ?? leave.remarks,
-        approvedBy: approverId ?? leave.approvedBy,
-      },
-      include: this.leaveInclude,
+    // Wrap update and audit creation in a transaction for atomicity
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedLeave = await tx.leave.update({
+        where: { id },
+        data: {
+          status: LeaveStatus.APPROVED,
+          approvedAt: new Date(),
+          remarks: approveLeaveDto.remarks ?? leave.remarks,
+          approvedBy: approverId ?? leave.approvedBy,
+        },
+      });
+
+      // create audit log
+      await this.auditService.create({
+        userId: approverId ?? undefined,
+        employeeCode: leave.employee?.employeeCode ?? undefined,
+        action: 'approve_leave',
+        module: 'leave',
+        description: `Leave ${leave.leaveNumber} approved`,
+      });
+
+      return updatedLeave;
     });
+
+    return this.prisma.leave.findUnique({ where: { id }, include: this.leaveInclude });
   }
 
   async reject(id: string, rejectLeaveDto: RejectLeaveDto) {
@@ -186,14 +235,26 @@ export class LeaveService {
       throw new ConflictException('Leave is already rejected');
     }
 
-    return this.prisma.leave.update({
-      where: { id },
-      data: {
-        status: LeaveStatus.REJECTED,
-        rejectionReason: rejectLeaveDto.rejectionReason,
-      },
-      include: this.leaveInclude,
+    // Wrap update and audit creation in transaction
+    await this.prisma.$transaction(async (tx) => {
+      await tx.leave.update({
+        where: { id },
+        data: {
+          status: LeaveStatus.REJECTED,
+          rejectionReason: rejectLeaveDto.rejectionReason,
+        },
+      });
+
+      await this.auditService.create({
+        userId: undefined,
+        employeeCode: leave.employee?.employeeCode ?? undefined,
+        action: 'reject_leave',
+        module: 'leave',
+        description: `Leave ${leave.leaveNumber} rejected`,
+      });
     });
+
+    return this.prisma.leave.findUnique({ where: { id }, include: this.leaveInclude });
   }
 
   async remove(id: string) {
