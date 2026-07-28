@@ -28,6 +28,8 @@ import { ActivityModule } from './activity/activity.module';
 import { SystemModule } from './system/system.module';
 import { DocumentModule } from './document/document.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { PayrollModule } from './payroll/payroll.module';
       isGlobal: true,
     }),
     PrismaModule,
+    ThrottlerModule.forRoot({ ttl: 60, limit: 20 } as any),
     CompanyModule,
     AuditModule,
     BranchModule,
@@ -62,6 +65,6 @@ import { PayrollModule } from './payroll/payroll.module';
     PayrollModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
