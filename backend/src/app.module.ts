@@ -6,6 +6,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { BranchModule } from './branch/branch.module';
 import { CompanyModule } from './company/company.module';
+import { AuditModule } from './audit/audit.module';
 import { DepartmentModule } from './department/department.module';
 import { DesignationModule } from './designation/designation.module';
 import { EmployeeModule } from './employee/employee.module';
@@ -25,6 +26,7 @@ import { PayrollModule } from './payroll/payroll.module';
     }),
     PrismaModule,
     CompanyModule,
+    AuditModule,
     BranchModule,
     DepartmentModule,
     DesignationModule,
