@@ -25,7 +25,16 @@ export class PayrollService {
       structure = await this.prisma.salaryStructure.create({
         data: {
           employeeId: dto.employeeId,
-          createdBy: userId,
+          basicSalary: dto.basic ?? 0,
+          hra: dto.hra ?? 0,
+          transportAllowance: dto.travel ?? 0,
+          otherAllowances: dto.otherAllowances ?? 0,
+          pfContributionEmployee: dto.pf ?? 0,
+          pfContributionEmployer: 0,
+          esiContributionEmployee: dto.esi ?? 0,
+          esiContributionEmployer: 0,
+          professionalTax: dto.professionalTax ?? 0,
+          tds: dto.tds ?? 0,
         },
       });
     }
@@ -67,9 +76,10 @@ export class PayrollService {
   }
 
   async getSalaryStructure(employeeId: string) {
-    const structure = await this.prisma.salaryStructure.findUnique({ where: { employeeId }, include: { revisions: { orderBy: { version: 'desc' }, take: 1 } } });
+    const structure = await this.prisma.salaryStructure.findUnique({ where: { employeeId } });
     if (!structure) throw new NotFoundException('Salary structure not found');
-    return structure;
+    const revision = await this.prisma.salaryRevision.findFirst({ where: { salaryStructureId: structure.id }, orderBy: { version: 'desc' } });
+    return { structure, revision };
   }
 
   private async countWorkingDaysInMonth(year: number, month: number, branchId?: string) {
