@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
-
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 @Injectable()
 export class HolidayService {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,15 +21,24 @@ export class HolidayService {
     });
   }
 
-  async findAll() {
-    return this.prisma.holiday.findMany({
-      include: {
-        branch: true,
-      },
-      orderBy: {
-        date: 'asc',
-      },
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+    const where: any = {};
+    if (query.dateFrom || query.dateTo) {
+      const df = query.dateFrom ? new Date(query.dateFrom) : undefined;
+      const dt = query.dateTo ? new Date(query.dateTo) : undefined;
+      where.date = {} as any;
+      if (df) where.date.gte = df;
+      if (dt) where.date.lte = dt;
+    }
+
+    const [total, data] = await Promise.all([
+      this.prisma.holiday.count({ where }),
+      this.prisma.holiday.findMany({ where, include: { branch: true }, skip, take: limit, orderBy: query.sort ? { [query.sort]: query.order || 'asc' } : { date: 'asc' } }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findByBranch(branchId: string) {

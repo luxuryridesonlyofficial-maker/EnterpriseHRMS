@@ -6,6 +6,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class BranchService {
@@ -40,15 +42,21 @@ export class BranchService {
     });
   }
 
-  async findAll() {
-    return this.prisma.branch.findMany({
-      include: {
-        company: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.branch.count(),
+      this.prisma.branch.findMany({
+        include: { company: true },
+        skip,
+        take: limit,
+        orderBy,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

@@ -6,6 +6,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDesignationDto } from './dto/create-designation.dto';
 import { UpdateDesignationDto } from './dto/update-designation.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class DesignationService {
@@ -53,20 +55,20 @@ export class DesignationService {
     });
   }
 
-  async findAll() {
-    return this.prisma.designation.findMany({
-      include: {
-        department: {
-          include: {
-            branch: {
-              include: {
-                company: true,
-              },
-            },
-          },
-        },
-      },
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+    const [total, data] = await Promise.all([
+      this.prisma.designation.count(),
+      this.prisma.designation.findMany({
+        include: { department: { include: { branch: { include: { company: true } } } } },
+        skip,
+        take: limit,
+        orderBy,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

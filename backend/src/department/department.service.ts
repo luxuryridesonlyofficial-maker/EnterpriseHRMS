@@ -6,6 +6,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class DepartmentService {
@@ -49,19 +51,21 @@ export class DepartmentService {
     });
   }
 
-  async findAll() {
-    return this.prisma.department.findMany({
-      include: {
-        branch: {
-          include: {
-            company: true,
-          },
-        },
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const [total, data] = await Promise.all([
+      this.prisma.department.count(),
+      this.prisma.department.findMany({
+        include: { branch: { include: { company: true } } },
+        skip,
+        take: limit,
+        orderBy: query.sort ? { [query.sort]: query.order || 'asc' } : { name: 'asc' },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

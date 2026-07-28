@@ -8,6 +8,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class ShiftService {
@@ -40,11 +42,15 @@ export class ShiftService {
     }
   }
 
-  async findAll() {
-    return await this.prisma.shift.findMany({
-      include: this.shiftInclude,
-      orderBy: [{ branchId: 'asc' }, { name: 'asc' }],
-    });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+    const [total, data] = await Promise.all([
+      this.prisma.shift.count(),
+      this.prisma.shift.findMany({ include: this.shiftInclude, skip, take: limit, orderBy }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

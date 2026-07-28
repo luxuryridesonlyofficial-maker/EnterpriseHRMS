@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -38,8 +39,8 @@ export class DepartmentController {
     UserRole.TEAM_LEAD,
   )
   @Get()
-  findAll() {
-    return this.departmentService.findAll();
+  findAll(@Query() query: any) {
+    return this.departmentService.findAll(query);
   }
 
   @Roles(
