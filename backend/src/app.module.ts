@@ -23,6 +23,7 @@ import { TrainingModule } from './training/training.module';
 import { PerformanceModule } from './performance/performance.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
+import { ImportExportModule } from './importexport/importexport.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -51,6 +52,7 @@ import { PayrollModule } from './payroll/payroll.module';
     PerformanceModule,
     ReportsModule,
     SettingsModule,
+    ImportExportModule,
     PayrollModule,
   ],
   controllers: [AppController],
