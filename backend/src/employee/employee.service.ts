@@ -45,12 +45,27 @@ export class EmployeeService {
     }
   }
 
-  async findAll(query: Partial<PaginationDto> = {}) {
+  async findAll(query: Partial<PaginationDto> & any = {}) {
     const { page, limit, skip, orderBy } = buildPaginationOptions(query);
 
+    const where: any = {};
+    if (query.search) {
+      where.OR = [
+        { firstName: { contains: query.search, mode: 'insensitive' } },
+        { lastName: { contains: query.search, mode: 'insensitive' } },
+        { employeeCode: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+    if (query.departmentId) where.designation = { some: { departmentId: query.departmentId } };
+    if (query.designationId) where.designationId = query.designationId;
+    if (query.branchId) where.branchId = query.branchId;
+    if (query.status) where.status = query.status;
+    if (query.employeeCode) where.employeeCode = query.employeeCode;
+
     const [total, data] = await Promise.all([
-      this.prisma.employee.count(),
+      this.prisma.employee.count({ where }),
       this.prisma.employee.findMany({
+        where,
         include: this.employeeInclude,
         skip,
         take: limit,

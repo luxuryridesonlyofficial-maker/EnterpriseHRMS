@@ -7,8 +7,11 @@ import { PayrollService } from './payroll.service';
 import { CreateSalaryStructureDto } from './dto/create-salary-structure.dto';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 import { ApprovePayrollDto } from './dto/approve-payroll.dto';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('payroll')
+@ApiBearerAuth()
 @Controller('payroll')
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}

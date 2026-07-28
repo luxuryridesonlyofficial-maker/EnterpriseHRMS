@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Get, Param, Put, Delete, UseGuards, Req, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AssetService } from './asset.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,6 +10,8 @@ import type { Request } from 'express';
 import { PaginationDto } from '../common/pagination.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('assets')
+@ApiBearerAuth()
 @Controller('assets')
 export class AssetController {
   constructor(private readonly service: AssetService) {}

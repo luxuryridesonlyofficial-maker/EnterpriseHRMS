@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
@@ -9,6 +9,7 @@ import { PaginationDto } from '../common/pagination.dto';
 
 @ApiTags('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly service: NotificationService) {}

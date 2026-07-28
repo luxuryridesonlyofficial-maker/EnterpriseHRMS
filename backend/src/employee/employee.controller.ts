@@ -15,12 +15,15 @@ import { EmployeeService } from './employee.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { PaginationDto } from '../common/pagination.dto';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('employees')
+@ApiBearerAuth()
 @Controller('employee')
 export class EmployeeController {
   constructor(private readonly employeeService: EmployeeService) {}
@@ -40,7 +43,7 @@ export class EmployeeController {
     UserRole.TEAM_LEAD,
   )
   @Get()
-  findAll(@Query() query: PaginationDto) {
+  findAll(@Query() query: any) {
     return this.employeeService.findAll(query);
   }
 
