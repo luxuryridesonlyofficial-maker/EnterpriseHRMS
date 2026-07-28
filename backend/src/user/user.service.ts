@@ -8,6 +8,8 @@ import { Prisma } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class UserService {
@@ -70,25 +72,34 @@ export class UserService {
     });
   }
 
-  async findAll() {
-    return this.prisma.user.findMany({
-      include: {
-        employee: {
-          include: {
-            branch: {
-              include: {
-                company: true,
-              },
-            },
-            designation: {
-              include: {
-                department: true,
-              },
+  async findAll(query: Partial<PaginationDto> & any = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+
+    const where: any = {};
+    if (query.search) {
+      where.OR = [{ mobile: { contains: query.search, mode: 'insensitive' } }, { role: { contains: query.search, mode: 'insensitive' } }];
+    }
+
+    const [total, data] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        include: {
+          employee: {
+            include: {
+              branch: { include: { company: true } },
+              designation: { include: { department: true } },
             },
           },
         },
-      },
-    });
+        skip,
+        take: limit,
+        orderBy,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {

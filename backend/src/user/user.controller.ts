@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -31,8 +32,8 @@ export class UserController {
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)
   @Get()
-  findAll() {
-    return this.userService.findAll();
+  findAll(@Query() query: any) {
+    return this.userService.findAll(query);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)

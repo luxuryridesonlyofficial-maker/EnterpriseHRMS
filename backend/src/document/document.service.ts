@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { PaginationDto } from '../common/pagination.dto';
+import { buildPaginationOptions } from '../common/pagination.util';
 
 @Injectable()
 export class DocumentService {
@@ -23,8 +25,23 @@ export class DocumentService {
     return created;
   }
 
-  async findAll() {
-    return this.prisma.document.findMany({ orderBy: { createdAt: 'desc' } });
+  async findAll(query: Partial<PaginationDto> = {}) {
+    const { page, limit, skip, orderBy } = buildPaginationOptions(query);
+    const where: any = {};
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, data] = await Promise.all([
+      this.prisma.document.count({ where }),
+      this.prisma.document.findMany({ where, orderBy, skip, take: limit }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    return { data, meta: { total, page, limit, totalPages } };
   }
 
   async findOne(id: string) {
