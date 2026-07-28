@@ -14,7 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -75,14 +75,31 @@ export class AttendanceController {
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAttendanceDto: UpdateAttendanceDto,
+    @Req() req: Request,
   ) {
+    const userId = (req as any).user?.id ?? undefined;
     return await this.attendanceService.update(id, updateAttendanceDto);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)
   @Delete(':id')
-  async remove(@Param('id', new ParseUUIDPipe()) id: string) {
+  async remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? undefined;
     return await this.attendanceService.remove(id);
+  }
+
+  @Roles(...ATTENDANCE_MANAGEMENT_ROLES)
+  @Post('bulk')
+  async bulkCreate(@Body() body: CreateAttendanceDto[], @Req() req: Request) {
+    const userId = (req as any).user?.id ?? undefined;
+    return await this.attendanceService.bulkCreate(body, userId);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER)
+  @Post(':id/verify')
+  async verify(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? undefined;
+    return await this.attendanceService.verifyAttendance(id, userId);
   }
 
   @Roles(...ATTENDANCE_ACTION_ROLES)

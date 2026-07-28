@@ -59,7 +59,7 @@ export class AttendanceService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createAttendanceDto: CreateAttendanceDto) {
+  async create(createAttendanceDto: CreateAttendanceDto, userId?: string) {
     const employee = await this.getEmployeeWithShift(
       this.prisma,
       createAttendanceDto.employeeId,
@@ -105,18 +105,26 @@ export class AttendanceService {
     );
 
     try {
-      return await this.prisma.attendance.create({
-        data: {
-          employeeId: employee.id,
-          date,
-          checkIn,
-          checkOut,
-          status: createAttendanceDto.status ?? AttendanceStatus.PRESENT,
-          remarks: this.normalizeRemarks(createAttendanceDto.remarks),
-          ...metrics,
-        },
-        include: this.attendanceInclude,
+      // create attendance and audit in a transaction
+      const created = await this.prisma.$transaction(async (tx) => {
+        const att = await tx.attendance.create({
+          data: {
+            employeeId: employee.id,
+            date,
+            checkIn,
+            checkOut,
+            status: createAttendanceDto.status ?? AttendanceStatus.PRESENT,
+            remarks: this.normalizeRemarks(createAttendanceDto.remarks),
+            ...metrics,
+          },
+        });
+
+        await tx.auditLog.create({ data: { userId: userId ?? undefined, employeeCode: employee.employeeCode, action: 'create_attendance', module: 'attendance', description: `Created attendance for ${employee.employeeCode} on ${date.toISOString().slice(0,10)}` } });
+
+        return att;
       });
+
+      return this.prisma.attendance.findUnique({ where: { id: created.id }, include: this.attendanceInclude });
     } catch (error) {
       this.throwDuplicateAttendanceError(error);
     }
@@ -251,22 +259,30 @@ export class AttendanceService {
     );
 
     try {
-      return await this.prisma.attendance.update({
-        where: { id },
-        data: {
-          employeeId,
-          date,
-          checkIn,
-          checkOut,
-          status: updateAttendanceDto.status ?? attendance.status,
-          remarks:
-            updateAttendanceDto.remarks === undefined
-              ? attendance.remarks
-              : this.normalizeRemarks(updateAttendanceDto.remarks),
-          ...metrics,
-        },
-        include: this.attendanceInclude,
+      // update attendance and create audit inside a transaction
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.attendance.update({
+          where: { id },
+          data: {
+            employeeId,
+            date,
+            checkIn,
+            checkOut,
+            status: updateAttendanceDto.status ?? attendance.status,
+            remarks:
+              updateAttendanceDto.remarks === undefined
+                ? attendance.remarks
+                : this.normalizeRemarks(updateAttendanceDto.remarks),
+            ...metrics,
+          },
+        });
+
+        await tx.auditLog.create({ data: { userId: undefined, employeeCode: employee.employeeCode, action: 'update_attendance', module: 'attendance', description: `Updated attendance ${id} for ${employee.employeeCode}` } });
+
+        return u;
       });
+
+      return this.prisma.attendance.findUnique({ where: { id: updated.id }, include: this.attendanceInclude });
     } catch (error) {
       this.throwDuplicateAttendanceError(error);
     }
@@ -280,10 +296,13 @@ export class AttendanceService {
         where: { attendanceId: id },
       });
 
-      return await transaction.attendance.delete({
+      const deleted = await transaction.attendance.delete({
         where: { id },
-        include: this.attendanceInclude,
       });
+
+      await transaction.auditLog.create({ data: { userId: undefined, employeeCode: deleted.employeeId ?? undefined, action: 'delete_attendance', module: 'attendance', description: `Deleted attendance ${id}` } });
+
+      return await transaction.attendance.findUnique({ where: { id: deleted.id }, include: this.attendanceInclude }).catch(() => deleted as any);
     });
   }
 
@@ -383,14 +402,17 @@ export class AttendanceService {
         this.resolveShift(employee),
       );
 
-      return await transaction.attendance.update({
+      const res = await transaction.attendance.update({
         where: { id: attendance.id },
         data: {
           checkOut,
           ...metrics,
         },
-        include: this.attendanceInclude,
       });
+
+      await transaction.auditLog.create({ data: { userId: undefined, employeeCode: attendance.employeeId, action: 'check_out', module: 'attendance', description: `Checked out attendance ${attendance.id}` } });
+
+      return await transaction.attendance.findUnique({ where: { id: res.id }, include: this.attendanceInclude });
     });
   }
 
@@ -435,19 +457,16 @@ export class AttendanceService {
         throw new BadRequestException('Break-out time cannot precede check-in');
       }
 
-      return await transaction.attendanceBreak.create({
+      const createdBreak = await transaction.attendanceBreak.create({
         data: {
           attendanceId: attendance.id,
           breakOut,
         },
-        include: {
-          attendance: {
-            include: {
-              employee: this.attendanceInclude.employee,
-            },
-          },
-        },
       });
+
+      await transaction.auditLog.create({ data: { userId: undefined, employeeCode: attendance.employeeId, action: 'break_out', module: 'attendance', description: `Break started for attendance ${attendance.id}` } });
+
+      return await transaction.attendanceBreak.findUnique({ where: { id: createdBreak.id }, include: { attendance: { include: { employee: this.attendanceInclude.employee } } } });
     });
   }
 
@@ -520,20 +539,17 @@ export class AttendanceService {
         data: metrics,
       });
 
-      return await transaction.attendanceBreak.update({
+      const updatedBreak = await transaction.attendanceBreak.update({
         where: { id: breakId },
         data: {
           breakIn,
           minutes,
         },
-        include: {
-          attendance: {
-            include: {
-              employee: this.attendanceInclude.employee,
-            },
-          },
-        },
       });
+
+      await transaction.auditLog.create({ data: { userId: undefined, employeeCode: attendanceBreak.attendance.employeeId, action: 'break_in', module: 'attendance', description: `Break closed for attendance ${attendanceBreak.attendance.id}` } });
+
+      return await transaction.attendanceBreak.findUnique({ where: { id: updatedBreak.id }, include: { attendance: { include: { employee: this.attendanceInclude.employee } } } });
     });
   }
 
@@ -541,6 +557,7 @@ export class AttendanceService {
     client: PrismaService | Prisma.TransactionClient,
     employeeId: string,
   ) {
+    // helper unchanged
     const employee = await client.employee.findUnique({
       where: { id: employeeId },
       include: {
@@ -874,6 +891,56 @@ export class AttendanceService {
       month: date.getUTCMonth() + 1,
       day: date.getUTCDate(),
     };
+  }
+
+  // Bulk create attendances inside a transaction with a single audit log
+  async bulkCreate(attendances: CreateAttendanceDto[], userId?: string) {
+    if (!Array.isArray(attendances) || attendances.length === 0) {
+      throw new BadRequestException('Attendances must be a non-empty array');
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const results: any[] = [];
+
+      for (const dto of attendances) {
+        const employee = await this.getEmployeeWithShift(tx, dto.employeeId);
+        const date = this.parseAttendanceDate(dto.date);
+        const checkIn = this.parseOptionalDate(dto.checkIn, 'checkIn');
+        const checkOut = this.parseOptionalDate(dto.checkOut, 'checkOut');
+
+        this.validateAttendanceTimes(checkIn, checkOut);
+        this.validateCheckInAttendanceDate(date, checkIn);
+
+        const duplicate = await tx.attendance.findUnique({ where: { employeeId_date: { employeeId: employee.id, date } } }).catch(() => null);
+        if (duplicate) continue;
+
+        const metrics = this.calculateAttendanceMetrics({ id: '', employeeId: employee.id, date, checkIn, checkOut, breaks: [] }, this.resolveShift(employee));
+
+        const att = await tx.attendance.create({ data: { employeeId: employee.id, date, checkIn, checkOut, status: dto.status ?? AttendanceStatus.PRESENT, remarks: this.normalizeRemarks(dto.remarks), ...metrics } });
+        results.push(att);
+      }
+
+      await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'bulk_create_attendance', module: 'attendance', description: `Bulk created ${results.length} attendances` } });
+
+      return results;
+    });
+
+    // fetch with includes
+    return Promise.all(created.map((c: any) => this.prisma.attendance.findUnique({ where: { id: c.id }, include: this.attendanceInclude })));
+  }
+
+  // Verify/approve an attendance correction (marks remarks and logs audit)
+  async verifyAttendance(attendanceId: string, approverId?: string) {
+    const attendance = await this.findOne(attendanceId);
+    if (!attendance) throw new NotFoundException('Attendance not found');
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.attendance.update({ where: { id: attendanceId }, data: { remarks: `${attendance.remarks ?? ''} | Verified by ${approverId ?? 'system'}` } });
+      await tx.auditLog.create({ data: { userId: approverId ?? undefined, employeeCode: attendance.employeeId, action: 'verify_attendance', module: 'attendance', description: `Attendance ${attendanceId} verified` } });
+      return u;
+    });
+
+    return this.prisma.attendance.findUnique({ where: { id: updated.id }, include: this.attendanceInclude });
   }
 
   private throwDuplicateAttendanceError(error: unknown): never {
