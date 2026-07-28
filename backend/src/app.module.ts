@@ -20,6 +20,7 @@ import { NotificationModule } from './notification/notification.module';
 import { AssetModule } from './asset/asset.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { TrainingModule } from './training/training.module';
+import { PerformanceModule } from './performance/performance.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -45,6 +46,7 @@ import { PayrollModule } from './payroll/payroll.module';
     AssetModule,
     RecruitmentModule,
     TrainingModule,
+    PerformanceModule,
     PayrollModule,
   ],
   controllers: [AppController],
