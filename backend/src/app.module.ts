@@ -25,6 +25,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { ImportExportModule } from './importexport/importexport.module';
 import { ActivityModule } from './activity/activity.module';
+import { SystemModule } from './system/system.module';
 import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
@@ -55,6 +56,7 @@ import { PayrollModule } from './payroll/payroll.module';
     SettingsModule,
     ImportExportModule,
     ActivityModule,
+    SystemModule,
     PayrollModule,
   ],
   controllers: [AppController],
