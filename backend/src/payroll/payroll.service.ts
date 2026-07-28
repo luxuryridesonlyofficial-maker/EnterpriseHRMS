@@ -206,7 +206,10 @@ export class PayrollService {
       }
 
       // create payslip content
-      await this.prisma.payslip.create({ data: { payrollId: payroll.id, content: { gross: payroll.gross, deductions: totalDeductions, net: payroll.net, components: comps } } });
+      const payslip = await this.prisma.payslip.create({ data: { payslipNumber: `PS-${Date.now()}`, employeeId: emp.id, month, year, basicSalary: comps.basic ?? 0, grossEarnings: payroll.gross, grossDeductions: totalDeductions, netSalary: payroll.net, earnings: comps, deductions: { totalDeductions } } });
+
+      // link payslip to payroll
+      await this.prisma.payslip_Payroll.create({ data: { payrollId: payroll.id, content: { gross: payroll.gross, deductions: totalDeductions, net: payroll.net, components: comps } } });
 
       // history
       await this.prisma.payrollHistory.create({ data: { payrollId: payroll.id, action: 'GENERATED', actorId: userId } });
