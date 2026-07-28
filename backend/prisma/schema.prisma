@@ -654,6 +654,19 @@ model AuditLog {
   createdAt    DateTime @default(now())
 }
 
+// Document Management Model
+model Document {
+  id         String   @id @default(uuid())
+  title      String
+  filePath   String
+  uploadedBy String?
+  employeeId String?
+  tags       String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
 // ENUMS
 enum UserRole {
   SUPER_ADMIN
