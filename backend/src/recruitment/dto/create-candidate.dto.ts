@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateCandidateDto {
   @IsString()
@@ -13,6 +13,8 @@ export class CreateCandidateDto {
   email: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Matches(/^[0-9+()\-\s]{7,20}$/)
   mobile: string;
 
   @IsOptional()

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, IsArray } from 'class-validator';
 
 export class CreateDocumentDto {
   @IsNotEmpty()
@@ -10,13 +10,15 @@ export class CreateDocumentDto {
   filePath: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   uploadedBy?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   employeeId?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   tags?: string[];
 }

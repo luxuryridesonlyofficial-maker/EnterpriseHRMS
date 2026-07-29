@@ -1,8 +1,8 @@
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsUUID } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsOptional()
-  @IsString()
+  @IsUUID()
   employeeId?: string;
 
   @IsString()

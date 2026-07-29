@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
 
 export class CreateBranchDto {
   @IsString()
@@ -9,7 +9,7 @@ export class CreateBranchDto {
   @IsNotEmpty()
   name: string;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   companyId: string;
 }

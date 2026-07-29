@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsDate, IsNotEmpty, IsString, MaxLength, IsUUID } from 'class-validator';
 
 export class CreateHolidayDto {
   @IsString()
@@ -11,7 +11,7 @@ export class CreateHolidayDto {
   @IsDate()
   date!: Date;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   branchId!: string;
 }
