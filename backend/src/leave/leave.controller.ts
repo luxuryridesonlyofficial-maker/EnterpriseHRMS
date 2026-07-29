@@ -36,11 +36,15 @@ type AuthenticatedRequest = Request & {
 };
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('leave')
+@ApiBearerAuth()
 @Controller('leave')
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
 
   @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Create leave request for the authenticated employee' })
+  @ApiResponse({ status: 201, description: 'Leave created' })
   @Post()
   create(
     @Req() request: AuthenticatedRequest,

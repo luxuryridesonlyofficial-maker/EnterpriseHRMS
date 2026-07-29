@@ -24,6 +24,8 @@ const SHIFT_MANAGEMENT_ROLES: UserRole[] = [
 ];
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('shifts')
+@ApiBearerAuth()
 @Controller('shift')
 export class ShiftController {
   constructor(private readonly shiftService: ShiftService) {}

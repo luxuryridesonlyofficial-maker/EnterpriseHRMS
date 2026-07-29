@@ -8,11 +8,15 @@ import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('performance')
+@ApiBearerAuth()
 @Controller('performance')
 export class PerformanceController {
   constructor(private readonly svc: PerformanceService) {}
 
   @Roles(UserRole.MANAGER, UserRole.HR_MANAGER, UserRole.COMPANY_ADMIN)
+  @ApiOperation({ summary: 'Create performance review for an employee' })
+  @ApiResponse({ status: 201, description: 'Review created successfully' })
   @Post('reviews')
   createReview(@Body() dto: CreateReviewDto, @Req() req: Request) {
     const userId = (req as any).user?.id ?? undefined;
@@ -20,6 +24,8 @@ export class PerformanceController {
   }
 
   @Roles(UserRole.MANAGER, UserRole.HR_MANAGER, UserRole.COMPANY_ADMIN)
+  @ApiOperation({ summary: 'List performance reviews' })
+  @ApiResponse({ status: 200, description: 'List of reviews' })
   @Get('reviews')
   listReviews(@Query('employeeId') employeeId: string) {
     return this.svc.listReviews(employeeId);

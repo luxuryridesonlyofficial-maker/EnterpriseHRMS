@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
 import { BranchService } from './branch.service';
@@ -20,6 +21,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiTags('branches')
+@ApiBearerAuth()
 @Controller('branch')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
