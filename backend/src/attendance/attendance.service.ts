@@ -899,11 +899,29 @@ export class AttendanceService {
       throw new BadRequestException('Attendances must be a non-empty array');
     }
 
+    // fetch unique employee records in one query to avoid N+1
+    const uniqueEmployeeIds = Array.from(new Set(attendances.map((a) => a.employeeId)));
+    const employees = await this.prisma.employee.findMany({
+      where: { id: { in: uniqueEmployeeIds } },
+      include: {
+        shift: true,
+        branch: { include: { shifts: { orderBy: { startTime: 'asc' } } } },
+      },
+    });
+
+    // ensure all referenced employees exist
+    const employeesMap = new Map(employees.map((e) => [e.id, e]));
+    for (const empId of uniqueEmployeeIds) {
+      if (!employeesMap.has(empId)) {
+        throw new NotFoundException(`Employee not found: ${empId}`);
+      }
+    }
+
     const created = await this.prisma.$transaction(async (tx) => {
-      const results: any[] = [];
+      const createdIds: string[] = [];
 
       for (const dto of attendances) {
-        const employee = await this.getEmployeeWithShift(tx, dto.employeeId);
+        const employee = employeesMap.get(dto.employeeId)!;
         const date = this.parseAttendanceDate(dto.date);
         const checkIn = this.parseOptionalDate(dto.checkIn, 'checkIn');
         const checkOut = this.parseOptionalDate(dto.checkOut, 'checkOut');
@@ -917,16 +935,17 @@ export class AttendanceService {
         const metrics = this.calculateAttendanceMetrics({ id: '', employeeId: employee.id, date, checkIn, checkOut, breaks: [] }, this.resolveShift(employee));
 
         const att = await tx.attendance.create({ data: { employeeId: employee.id, date, checkIn, checkOut, status: dto.status ?? AttendanceStatus.PRESENT, remarks: this.normalizeRemarks(dto.remarks), ...metrics } });
-        results.push(att);
+        createdIds.push(att.id);
       }
 
-      await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'bulk_create_attendance', module: 'attendance', description: `Bulk created ${results.length} attendances` } });
+      await tx.auditLog.create({ data: { userId: userId ?? undefined, action: 'bulk_create_attendance', module: 'attendance', description: `Bulk created ${createdIds.length} attendances` } });
 
-      return results;
+      return createdIds;
     });
 
-    // fetch with includes
-    return Promise.all(created.map((c: any) => this.prisma.attendance.findUnique({ where: { id: c.id }, include: this.attendanceInclude })));
+    // fetch all created attendances in a single query with includes
+    if (created.length === 0) return [];
+    return await this.prisma.attendance.findMany({ where: { id: { in: created } }, include: this.attendanceInclude });
   }
 
   // Verify/approve an attendance correction (marks remarks and logs audit)

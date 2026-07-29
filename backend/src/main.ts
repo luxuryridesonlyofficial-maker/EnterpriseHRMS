@@ -1,9 +1,11 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import helmet from 'helmet';
+
+const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -37,7 +39,6 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   } catch (e) {
     // swagger not installed — ignore
-    // console.log('Swagger not available');
   }
 
   app.enableCors({
@@ -48,9 +49,7 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 
-  console.log(
-    `🚀 Server running on http://localhost:${process.env.PORT ?? 3000}/api`,
-  );
+  logger.log(`🚀 Server running on http://localhost:${process.env.PORT ?? 3000}/api`);
 }
 
 bootstrap();

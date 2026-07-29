@@ -22,10 +22,13 @@ export class RecruitmentService {
   }
 
   async scheduleInterview(dto: CreateInterviewDto) {
-    // validate candidate and interviewer
-    const candidate = await this.prisma.candidate.findUnique({ where: { id: dto.candidateId } });
+    // validate candidate and interviewer in parallel to avoid extra latency
+    const [candidate, interviewer] = await Promise.all([
+      this.prisma.candidate.findUnique({ where: { id: dto.candidateId } }),
+      this.prisma.employee.findUnique({ where: { id: dto.interviewerId } }),
+    ]);
+
     if (!candidate) throw new NotFoundException('Candidate not found');
-    const interviewer = await this.prisma.employee.findUnique({ where: { id: dto.interviewerId } });
     if (!interviewer) throw new NotFoundException('Interviewer not found');
 
     return this.prisma.interview.create({ data: { candidateId: dto.candidateId, interviewerId: dto.interviewerId, scheduledAt: new Date(dto.scheduledAt), mode: dto.mode ?? 'ONLINE', meetingLink: dto.meetingLink } });
@@ -42,8 +45,8 @@ export class RecruitmentService {
 
     // create employee, onboarding and update candidate in a transaction
     const result = await this.prisma.$transaction(async (tx) => {
-      // create employee
-      const emp = await tx.employee.create({ data: employeeData });
+      // create employee (include relations to avoid an extra query)
+      const emp = await tx.employee.create({ data: employeeData, include: { branch: true, designation: true } });
 
       // create onboarding
       await tx.onboarding.create({ data: { employeeId: emp.id, taskList: [], status: 'PENDING', startDate: new Date() } });
@@ -57,7 +60,7 @@ export class RecruitmentService {
       return emp;
     });
 
-    return this.prisma.employee.findUnique({ where: { id: result.id }, include: { branch: true, designation: true } });
+    return result;
   }
 
   // Convert candidate to employee without onboarding
@@ -66,13 +69,13 @@ export class RecruitmentService {
     if (!candidate) throw new NotFoundException('Candidate not found');
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const emp = await tx.employee.create({ data: employeeData });
+      const emp = await tx.employee.create({ data: employeeData, include: { branch: true, designation: true } });
       await tx.candidate.update({ where: { id: candidateId }, data: { status: 'ONBOARDED' } });
       await tx.auditLog.create({ data: { userId: userId ?? undefined, employeeCode: emp.employeeCode, action: 'convert_candidate', module: 'recruitment', description: `Converted candidate ${candidate.email} to employee ${emp.employeeCode}` } });
       return emp;
     });
 
-    return this.prisma.employee.findUnique({ where: { id: result.id }, include: { branch: true, designation: true } });
+    return result;
   }
 
   // Accept offer: mark candidate as SELECTED and audit
