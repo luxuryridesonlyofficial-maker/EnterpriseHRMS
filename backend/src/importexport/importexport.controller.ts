@@ -2,12 +2,15 @@ import { Controller, Get, Query, Header, UseGuards } from '@nestjs/common';
 import { ImportExportService } from './importexport.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('export')
 export class ImportExportController {
   constructor(private readonly svc: ImportExportService) {}
 
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER, UserRole.SUPER_ADMIN)
   @Get('employees')
   @Header('Content-Type','text/csv')
   @Header('Content-Disposition','attachment; filename="employees.csv"')
@@ -15,6 +18,7 @@ export class ImportExportController {
     return this.svc.exportEmployeesCsv();
   }
 
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER, UserRole.SUPER_ADMIN)
   @Get('payroll')
   @Header('Content-Type','text/csv')
   @Header('Content-Disposition','attachment; filename="payroll.csv"')
@@ -22,6 +26,7 @@ export class ImportExportController {
     return this.svc.exportPayrollCsv(month);
   }
 
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.HR_MANAGER, UserRole.SUPER_ADMIN)
   @Get('attendance')
   @Header('Content-Type','text/csv')
   @Header('Content-Disposition','attachment; filename="attendance.csv"')
